@@ -19,12 +19,22 @@ split_seed = 42
 split_test_size = 0.2
 
 # Split X and y into train and validation set
-X_train, X_test, y_train, y_test = train_test_split(X, 
+X_cl_train, X_cl_test, y_cl_train, y_cl_test = train_test_split(X, 
                                                   y, 
                                                   test_size=split_test_size, 
                                                     random_state=split_seed)
 
-X = X_train.to_numpy()
-X_t = X_test.to_numpy()
+# print train set
+print("X_cl_train is a matrix of dimensions: {X_cl_train.shape}"
+
+# print validation set
+
+
+X = X_cl_train.to_numpy()
+X_t = X_cl_test.to_numpy()
+
+from sklearn.linear_model import LogisticRegression             # 1- model selection
+model = LogisticRegression(solver="newton-cg", penalty='none')  # 2- hyperparams
+model.fit(X, y_cl_train)  
 
 ```
