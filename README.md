@@ -279,13 +279,13 @@ forward_selection(X_cl_train, y_cl_train, X_cl_test, y_cl_test,
 ```
 # doing weird things
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
-model = LDA()
+model = LDA(store_covariance = TRUE)
 model = model.fit(X_cl_train, y_cl_train)
 
 print("Train accuracy:", accuracy(y_cl_train, model.predict(X_cl_train)))
 print("Test accuracy:", accuracy(y_cl_test, model.predict(X_cl_test)))
 ```
-
+IGNORE THIS CODE
 ```
 # what is this shit for????
 
@@ -310,6 +310,8 @@ model = model.fit(X_lda_train, y_lda_train)
 print("Train accuracy:", accuracy(y_lda_train, model.predict(X_lda_train)))
 print("Test accuracy:", accuracy(y_lda_test, model.predict(X_da_test)))
 ```
+
+
 
 ```
 from math import atan, degrees
@@ -426,41 +428,29 @@ With this analysis, we have two assumptions:
 ```
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.model_selection import GridSearchCV
 
-model = Pipeline([
+model_lda_poly = Pipeline([
     ('poly', PolynomialFeatures(degree=2)),
     ('lda', LDA(store_covariance=True))])
-model = model.fit(X_lda_train, y_lda_train)
 
-print("Train accuracy:", accuracy(y_lda_train, model.predict(X_lda_train)))
-print("Test accuracy:", accuracy(y_lda_test, model.predict(X_lda_test)))
-```
+params = {"poly__degree":range(1,3)}
 
-```
-lda_model = model.steps[-1][-1]
-plot_gaussian(model, lda_model.means_, lda_model.covariance_, X_lda_train, y=y_tlda_rain)
+cv_lda_poly = GridSearchCV(model_lda_poly, params, refit=True, cv=10, 
+                  scoring=make_scorer(accuracy))
+cv_lda_poly.fit(X_lda_train, y_lda_train)
+
 ```
 
 Obtaining the best degree:
 
 ```
-from sklearn.model_selection import GridSearchCV
-
-model = Pipeline([('poly', PolynomialFeatures()),
-                  ('lda', LDA(store_covariance=True))])
-params = {'poly__degree': range(1, 6)}
-cv = GridSearchCV(model, params, refit=True, cv=10, 
-                  scoring=make_scorer(accuracy))
-cv.fit(X_full_train, y_lda_train)
-
+cv_lda_poly.best_params_
+cv_lda_poly.best_score_
+pd.DataFrame(cv_lda_poly.cv_results_)
 ```
 
-```
-cv.best_params_
-cv.best_score_
-pd.DataFrame(cv.cv_results_)
-```
-
+May not be necessary:
 ```
 def show_results(cv, X_lda_test, params, prefix=''):
     prefix = ' '+prefix    
