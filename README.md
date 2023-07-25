@@ -451,6 +451,7 @@ pd.DataFrame(cv_lda_poly.cv_results_)
 ```
 
 May not be necessary:
+
 ```
 def show_results(cv, X_lda_test, params, prefix=''):
     prefix = ' '+prefix    
