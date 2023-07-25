@@ -450,32 +450,102 @@ cv_lda_poly.best_score_
 pd.DataFrame(cv_lda_poly.cv_results_)
 ```
 
-May not be necessary:
+## Quadratic Discriminant Analysis
+```
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA
+
+model = QDA(...) # do we need to write something here?
+model = model.fit(X_lda_train, y_lda_train)
+
+print("Train accuracy:", accuracy(y_lda_train, model.predict(X_lda_train)))
+print("Test accuracy:", accuracy(y_lda_test, model.predict(X_lda_test)))
+
+plot_gaussian(model, model.means_, np.stack(model.covariance_, axis=0), X_lda_train, y_lda_train, 2) #this changes
+```
+
+## KNN Analysis
 
 ```
-def show_results(cv, X_lda_test, params, prefix=''):
-    prefix = ' '+prefix    
-    results = pd.DataFrame(cv.cv_results_)
-    # Plot the CV (mean) scores for all possible parameters
-    plt.plot(..., ..., label=prefix)
+from sklearn.model_selection import GridSearchCV
 
-    # Find the best
-    best_idx = #...
-    # Plot it as a cross
-    plt.plot(..., ..., marker='X')
-    plt.legend()
+model_knn = KNeighborsClassifier()
+params_knn = {'n_neighbors': range(1, 15)}
+folds=10
+scorer = #...
 
-    print(prefix, f"(best {results[params][best_idx]}) CV accuracy:",  cv.best_score_)
-    print(prefix, f"(best {results[params][best_idx]}) Test accuracy:", accuracy(y_lda_test, cv.best_estimator_.predict(X_lda_test)))
+cv_knn = GridSearchCV(model_knn, params_knn, refit=True, cv=10,
+                     scoring=make_scorer(accuracy))
+cv_knn.fit(X_cl_train, y_cl_train)
+```
+
+```
+show_results(cv_knn, X_cl_test, "param_n_neighbors")
+```
+
+#### Normalizating values
+
+```
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
+params = {'knn__n_neighbors': range(1, 20)}
+model_std = Pipeline([
+    ('norm', ...),
+    ('knn', KNeighborsClassifier())])
+cv_std = GridSearchCV(model_std, params, refit=True, cv=10,
+                     scoring=make_scorer(accuracy))
+cv_std.fit(X_cl_train, y_cl_train)
+
+model_minmax = Pipeline([
+    ('norm', ...),
+    ('knn', KNeighborsClassifier())])
+cv_minmax = GridSearchCV(model_minmax, params, refit=True, cv=10,
+                        scoring=make_scorer(accuracy))
+cv_minmax.fit(X_cl_train, y_cl_train)
+
+# Plot the cv lines and the comparison between non-normalized and normalized values
+show_results(cv_knn, X_cl_test, "param_n_neighbors", prefix="Unnormalized")
+show_results(cv_std, X_cl_test, 'param_knn__n_neighbors', "StandardScaler")
+show_results(cv_minmax, X_cl_test, 'param_knn__n_neighbors', "MinMaxScaler")
+```
+
+#### Comparing all models
+
+```
+lda = LDA()
+lda_poly = Pipeline([('poly', PolynomialFeatures(degree=2)),
+                     ('lda', LDA(store_covariance=True))])
+qda = QDA()
+knn = KNeighborsClassifier(n_neighbors=11)
+knn_std = Pipeline([
+    ('norm', StandardScaler()),
+    ('knn', KNeighborsClassifier(n_neighbors=16))])
+knn_minmax = Pipeline([
+    ('norm', MinMaxScaler()),
+    ('knn', KNeighborsClassifier(n_neighbors=17))])
+
+from collections import OrderedDict
+models = OrderedDict([('lda', lda), ('lda_poly', lda_poly), ('qda', qda),
+                      ('knn', knn), ('knn_std', knn_std), ('knn_minmax', knn_minmax)])
+
+cv_scores, test_scores = [], []
+for name, model in models.items():
+    scores = #...
+    cv_score = #...
+    cv_scores.append(cv_score)
     
-show_results(cv, X_lda_test, 'param_poly__degree')
+    model.fit(X_full_train, y_train)
+    test_score = accuracy(y_test, model.predict(X_full_test))
+    test_scores.append(test_score)
+    print("{} CV score: {:.4f},  test score {:.4f}".format(name, cv_score, test_score))
+
+data = pd.DataFrame()
+data['model'] = list(models.keys()) * 2
+data['metric'] = ['10-cv accuracy'] * len(cv_scores) + ['test accuracy'] * len(test_scores)
+data['score'] = cv_scores + test_scores
+
+sns.barplot(x='model', y='score', data=data, hue='metric')
+plt.legend(loc='lower right')
 ```
-
-
-
-
-
-
 
 
 
