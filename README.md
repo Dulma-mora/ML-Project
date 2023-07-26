@@ -553,13 +553,14 @@ plt.legend(loc='lower right')
 This step should start with a linearly separable case, e.g., **classifying just two classes (setosa vs rest) in the example dataset** using the sepal characteristics. **We expect the SVM classifier to learn a robust boundary line, wrt the training data.**     
 In this case, we should also separate a categorical feature (?) so this code its needed to be finished:
 
+> What we are looking for is to select just the values of the "Revenue" feature, so we are gonna select 0 and 1, and that's it.
+
 ```
 # using the same parameters of previous steps
 # lda variables can also apply
 sns.scatterplot(X_cl_train[:,0], X_cl_train[:,1], hue=y_cl_train, marker='o', label="train") 
 sns.scatterplot(X_cl_test[:,0], X_cl_test[:,1], hue=y_cl_test, marker='^', label="test")
 ```
-
 
 ```
 from sklearn.svm import SVC
@@ -577,7 +578,7 @@ print("SVM train accuracy:", train_acc)
 print("SVM test accuracy:", test_acc)
 ```
 
-Here we are verifying the value of `decision_function` (the SVM scores) in correspondence of the support vectors
+Here we are verifying the value of `decision_function` (the SVM scores) in correspondence with the support vectors
 
 ```
 model_svm.support_vectors_
@@ -625,7 +626,9 @@ plot_svm_line(model_vsm, X0_range, X1_range)
 #### Non linearly separable cases
 
 Now that we trained our algorithm with linear separable data, we can do something with our non-linearly separable cases.     
-First we need to change de C value to a smaller number. Again, this code need to be modified after understanding which features we are supposed to use!
+First we need to change de C value to a smaller number. Again, this code need to be modified after understanding which features we are supposed to use!   
+
+> Same thing, we are trying to select the revenue feature.
 
 ```
 # Let's set the C parameter to smaller values
@@ -709,23 +712,142 @@ _ = plt.axis([X0_range[0]-0.5, X0_range[1]+0.5, X1_range[0]-0.5, X1_range[1]+0.5
 
 #### Non-linearly separable problem
 
-Ok, so we just did it with a linear-separable case, let's compare the three algorithms with a non-linearly separable problem!!!
+Ok, so we just did it with a linear-separable case, let's compare the three algorithms with a non-linearly separable problem!!!    
+Again, we need to select a proper (or also consider more than one) category feature.
+
+```
+# Select our categorical features TODO:
+X_ns = iris[['sepal_length', 'sepal_width']].to_numpy()
+y_ns = iris['species'].replace({'virginica': 0, 'versicolor': 1, 'setosa': 2}).to_numpy()
+
+# Remove setosa | in our case, remove one category =.= | or not???
+ok_mask = y_ns != 2
+X_ns = X_ns[ok_mask]
+y_ns = y_ns[ok_mask]
+
+X_ns_train, X_ns_test, y_ns_train, y_ns_test = train_test_split(X_ns, y_ns,
+                                                    test_size=split_test_size, 
+                                                    random_state=split_seed)
+
+sns.scatterplot(X_ns[:, 0], X_ns[:, 1], hue=y_ns)
+```
+
+```
+# Train a LogisticRegressor
+lr_model = LogisticRegression(fit_intercept=True, solver='lbfgs') # use lbfgs solver
+lr_model.fit(X_ns_train, y_ns_train)
+
+# Train a Perceptron classifier (try verbose=True and n_iter_no_change=100)
+pt_model = Perceptron(verbose=True)
+pt_model.fit(X_ns_train, y_ns_train)
+
+# Train an SVM classifier
+svm_model = SVC(kernel='linear', C=1000) # use C=1000
+svm_model.fit(X_ns_train, y_ns_train)
+
+sns.scatterplot(X_ns_train[:,0], X_ns_train[:,1], hue=y_ns_train, marker='o')
+sns.scatterplot(X_ns_test[:,0], X_ns_test[:,1], hue=y_ns_test, marker='^')
+
+plot_svm_line(svm_model, X0_range, X1_range, label="SVM")
+plot_linear_line(pt_model, X0_range, label="Perceptron")
+plot_linear_line(lr_model, X0_range, label="LogisticRegression")
+_ = plt.axis([X0_range[0]-0.5, X0_range[1]+0.5, X1_range[0]-0.5, X1_range[1]+0.5])
 
 
+for m in [svm_model, lr_model, pt_model]:
+    train_acc = accuracy_score(y_ns_train, m.predict(X_ns_train))
+    test_acc = accuracy_score(y_ns_test, m.predict(X_ns_test))
+    print("{} train score: {}".format(m.__class__.__name__, train_acc))
+    print("{} test score: {}".format(m.__class__.__name__, test_acc))
+```
 
+Now wtf ?   
+- Kernel Trick ?
+- Classification Metrics
+- Confusion Matrix Related Metrics
+- ROC curve
+- Algorithms comparison
 
+---
 
+## Kernel Trick with SVM
 
+Kernel Trick is used to be able to solve non linear classification problems. We need to use a function called Kernel. The input here s the training data. The output is the SVM training model 😃
 
+```
+# Train an SVM classifier
+svm_model = SVC(kernel='poly', degree=3, coef0=-5, C=5)
+svm_model.fit(X_ns_train, y_ns_train)
 
+sns.scatterplot(X_ns_train[:,0], X_ns_train[:,1], hue=y_ns_train, marker='o') # TODO:
+sns.scatterplot(X_ns_test[:,0], X_ns_test[:,1], hue=y_ns_test, marker='^') # TODO:
 
+plot_svm_line(svm_model, X0_range, X1_range, label="SVM")
+_ = plt.axis([X0_range[0]-0.5, X0_range[1]+0.5, X1_range[0]-0.5, X1_range[1]+0.5])
 
+train_acc = accuracy_score(y_ns_train, svm_model.predict(X_ns_train))
+test_acc = accuracy_score(y_ns_test, svm_model.predict(X_ns_test))
 
+print("Train score: {}".format(train_acc))
+print("Test score: {}".format(test_acc))
+```
 
+#### Grid Search for the Best Kernel
 
+We are choosing between three types of Kernel to select the best one for our data       
+Here we are setting every kernel type
 
+```
+from sklearn.model_selection import GridSearchCV
 
+# Polynomial
+param_grid = {'C': np.linspace(0.001, 100, 5),
+              'coef0': np.linspace(-10, 10, 5),
+              'degree': [2, 3, 4]}
+svm_poly = GridSearchCV(SVC(kernel='poly'), param_grid,
+                        cv=5, scoring='accuracy', refit=True)
+svm_poly.fit(X_ns_train, y_ns_train)
 
+# RBF
+param_grid = {'C': np.linspace(0.001, 100, 5),
+              'gamma': np.linspace(0.001, 100, 5)}
+rbf_poly = GridSearchCV(SVC(kernel='rbf'), param_grid, 
+                        cv=5, scoring='accuracy', refit=True)
+rbf_poly.fit(X_ns_train, y_ns_train)
+
+# Sigmoid
+param_grid = {'C': np.linspace(0.001, 100, 5),
+              'gamma': np.linspace(0.001, 100, 5),
+              'coef0': np.linspace(-10, 10, 5)}
+sigm_poly = GridSearchCV(SVC(kernel='sigmoid'), param_grid, 
+                         cv=5, scoring='accuracy', refit=True)
+sigm_poly.fit(X_ns_train, y_ns_train)
+```
+
+This code shows the best Kernel Model and also plots the borderline decision for every kernel.
+
+```
+for m in [svm_poly, rbf_poly, sigm_poly]:
+    cv_score = m.best_score_
+    m = m.best_estimator_
+    plt.figure()
+    print(m)
+    sns.scatterplot(X_ns_train[:,0], X_ns_train[:,1], hue=y_ns_train, marker='o')
+    sns.scatterplot(X_ns_test[:,0], X_ns_test[:,1], hue=y_ns_test, marker='^')
+    plot_svm_line(m, X0_range, X1_range)
+    _ = plt.axis([X0_range[0]-0.5, X0_range[1]+0.5, X1_range[0]-0.5, X1_range[1]+0.5])
+    train_acc = accuracy_score(y_ns_train, m.predict(X_ns_train))
+    test_acc = accuracy_score(y_ns_test, m.predict(X_ns_test))
+    print("cv score: {}".format(cv_score))
+    print("train score: {}".format(train_acc))
+    print("test score: {}\n".format(test_acc))
+```
+
+---
+
+## Classification Metrics
+
+Now we are moving further to evaluate which classification algorithm is better for our data.
 
 
 
