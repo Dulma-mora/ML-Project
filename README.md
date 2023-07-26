@@ -546,6 +546,173 @@ data['score'] = cv_scores + test_scores
 sns.barplot(x='model', y='score', data=data, hue='metric')
 plt.legend(loc='lower right')
 ```
+---
+
+## Support Vector Machine SVM Analysis
+
+This step should start with a linearly separable case, e.g., **classifying just two classes (setosa vs rest) in the example dataset** using the sepal characteristics. **We expect the SVM classifier to learn a robust boundary line, wrt the training data.**     
+In this case, we should also separate a categorical feature (?) so this code its needed to be finished:
+
+```
+# using the same parameters of previous steps
+# lda variables can also apply
+sns.scatterplot(X_cl_train[:,0], X_cl_train[:,1], hue=y_cl_train, marker='o', label="train") 
+sns.scatterplot(X_cl_test[:,0], X_cl_test[:,1], hue=y_cl_test, marker='^', label="test")
+```
+
+
+```
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+
+# We set a very high C value, i.e., virtually
+# disabling regularization
+model_svm = SVC(kernel='linear', C=np.inf)
+model_svm.fit(X_cl_train, y_cl_train)
+
+train_acc = accuracy_score(model_svm.predict(X_cl_train), y_cl_train)
+test_acc = accuracy_score(model_svm.predict(X_cl_test), y_cl_test)
+
+print("SVM train accuracy:", train_acc)
+print("SVM test accuracy:", test_acc)
+```
+
+Here we are verifying the value of `decision_function` (the SVM scores) in correspondence of the support vectors
+
+```
+model_svm.support_vectors_
+model_svm.decision_function(model_svm.support_vectors_)
+```
+
+Creating function to see the borderline decision:
+
+```
+def plot_svm_line(model, Xrange, Yrange, label=None):
+    Xmin, Xmax = Xrange
+    Ymin, Ymax = Yrange
+    # Create grid to evaluate model
+    xx = np.linspace(Xmin, Xmax, 100)
+    yy = np.linspace(Ymin, Ymax, 100)
+    YY, XX = np.meshgrid(yy, xx)
+    xy = np.vstack([XX.reshape(-1), YY.reshape(-1)]).T # [nsamples, 2]
+    Z = model.decision_function(xy).reshape(XX.shape)
+
+    # plot decision boundary and margins
+    c = plt.contour(XX, YY, Z, colors='g', 
+                # We want to plot lines where the decision function is either -1, 0, or 1
+                levels=[-1, 0, 1],
+                # We set different line styles for each "decision line"
+                linestyles=['--','-','--'])
+    c.collections[1].set_label(label)
+    # Remove this to add +1/-1/0 labels
+    # plt.clabel(c, inline=1, fontsize=10)
+    # plot support vectors
+    plt.scatter(model.support_vectors_[:, 0], model.support_vectors_[:, 1],
+                s=100, linewidth=1, facecolors='none', edgecolors='k')
+```
+
+Using the function. This may not be completely neccesary and need to be modified to fit out current data:
+
+```
+X0_range = (X_cl_train[:,0].min(), X_cl_train[:,0].max()) # TODO:
+X1_range = (X_cl_train[:,1].min(), X_cl_train[:,1].max()) # TODO:
+
+sns.scatterplot(X_cl_train[:,0], X_cl_train[:,1], hue=y_cl_train, marker='o')
+sns.scatterplot(X_cl_test[:,0], X_cl_test[:,1], hue=y_cl_test, marker='^')
+plot_svm_line(model_vsm, X0_range, X1_range)
+```
+
+#### Non linearly separable cases
+
+Now that we trained our algorithm with linear separable data, we can do something with our non-linearly separable cases.     
+First we need to change de C value to a smaller number. Again, this code need to be modified after understanding which features we are supposed to use!
+
+```
+# Let's set the C parameter to smaller values
+model_svm = SVC(kernel='linear', C=10)
+model_svm.fit(X_cl_train, y_cl_train)
+
+sns.scatterplot(X_cl_train[:,0], X_cl_train[:,1], hue=y_cl_train, marker='o') # TODO:
+sns.scatterplot(X_cl_test[:,0], X_cl_test[:,1], hue=y_cl_test, marker='^') # TODO:
+plot_svm_line(model_svm, X0_range, X1_range)
+```
+
+> Some remarks of the notes:      
+> By doing so, we enable points to be inside the margin. **The smaller the C, the larger the margin and the larger the number of support vectors.** Notice that slack variables are required for the optimization problem to have a solution if the problem is not linearly separable.            
+> Note that even if the margin is larger, it is actually still defined to have a fixed length of $\quad2 = \frac{2}{||\mathbf{w}||}$ wrt the values produced with the model, i.e., the decision function. All the points whose predicted value smaller than $1$ or larger than $-1$ are support vectors by definition. 
+
+```
+# Check the value of the decision function 
+# in correspondence with support vectors
+model_svm.decision_function(model_smv.support_vectors_)
+```
+
+In summary: SVM's intention is to find the most robust solution, this is, a **decision line**. The decision line that we are looking for is the one that is the **most far away from the training points possible!**.  
+
+## Comparing SVM with Logistic Regressor & Perceptron
+
+Now, we can compare the border decision of SVM with other linear algorithms that also compute linear bounds (Logistic regressor & Perceptron).    
+Note: here we are changing some variable names. Also, we can still choose if we want to use cl or lda parameters. I decided to continue with cl to not confuse myself. In fact, I can also delete lda objects and continue with my life 💀😆
+
+```
+from sklearn.linear_model import LogisticRegression, Perceptron
+
+# Train the SVM
+svm_model = SVC(kernel='linear', C=100) 
+svm_model.fit(X_cl_train, y_cl_train)
+
+# Train a LogisticRegressor
+lr_model = LogisticRegression(fit_intercept=True)
+lr_model.fit(X_cl_train, y_cl_train)
+
+# Train a Perceptron classifier (try verbose=True)
+pt_model = Perceptron()
+pt_model.fit(X_cl_train, y_cl_train)
+
+for m in [svm_model, lr_model, pt_model]:
+    train_acc = accuracy_score(y_cl_train, m.predict(X_cl_train))
+    test_acc = accuracy_score(y_cl_test, m.predict(X_cl_test))
+    print("{} train score: {}".format(m.__class__.__name__, train_acc))
+    print("{} test score: {}".format(m.__class__.__name__, test_acc))
+```
+
+Using a function that should work perfectly cause I did not move anything ☠️
+
+```
+# Shows the learned linear models
+# intercept_ + coef_[0]*x + coef_[1]*y = 0
+def plot_linear_line(model, Xrange, label=None):
+    Xmin, Xmax = Xrange
+    w0, = model.intercept_
+    w1, w2 = model.coef_.flatten()
+
+    x1, y1 = Xmin, -(w0 + w1 * Xmin) / w2
+    x2, y2 = Xmax, -(w0 + w1 * Xmax) / w2
+    sns.lineplot([x1, x2], [y1, y2], label=label)
+```
+#### Separable Linear Case
+
+THEREFORE, this code should perfectly work! (after setting the correct parameters). We should visualize the linear boundaries decided per each algorithm. Also, we expect something like this :suspect: :   
+- The SVM boundary is the one most far away from the two different classes
+- Logistic Regression maximizes the likelihood of points, therefore having a similar effect to the SVM
+- The Perceptron is the "less robust" of the three methods. The training algorithm is indeed iterative, and it stops as soon as all the training values are correctly classified. In the last iteration (depending on the learning rate) it may move the line just enough to correctly classify the last remaining misclassified sample, resulting in a line very close to some training data
+
+```
+f = sns.scatterplot(X_cl_train[:,0], X_cl_train[:,1], hue=y_cl_train, marker='o') # TODO:
+f = sns.scatterplot(X_cl_test[:,0], X_cl_test[:,1], hue=y_cl_test, marker='^') # TODO:
+
+plot_svm_line(svm_model, X0_range, X1_range, label="SVM")
+plot_linear_line(pt_model, X0_range, label="Perceptron")
+plot_linear_line(lr_model, X0_range, label="LogisticRegression")
+_ = plt.axis([X0_range[0]-0.5, X0_range[1]+0.5, X1_range[0]-0.5, X1_range[1]+0.5])
+```
+
+#### Non-linearly separable problem
+
+Ok, so we just did it with a linear-separable case, let's compare the three algorithms with a non-linearly separable problem!!!
+
+
+
 
 
 
