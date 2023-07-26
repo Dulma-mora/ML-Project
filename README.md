@@ -849,6 +849,308 @@ for m in [svm_poly, rbf_poly, sigm_poly]:
 
 Now we are moving further to evaluate which classification algorithm is better for our data.
 
+Some common classification metrics include:    
+- **Confusion Matrix:** A matrix that shows the counts of true positives, false positives, true negatives, and false negatives for the model.
+- Accuracy: Measures the proportion of correctly classified samples out of the total samples.
+- Precision: Measures the proportion of true positive samples correctly identified out of all samples classified as positive.
+- Recall (or Sensitivity): Measures the proportion of true positive samples correctly identified out of all samples that are actually positive.
+- F1-score: The harmonic mean of precision and recall, providing a balanced measure between the two metrics.
+- Specificity: Measures the proportion of true negative samples correctly identified out of all samples that are actually negative.
+- ROC-AUC: The area under the curve (AUC) of the Receiver Operating Characteristic (ROC) curve, representing the true positive rate versus the false positive rate for different classification thresholds.
+
+```
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import plot_confusion_matrix
+
+# computing confusion matrix
+cm = confusion_matrix(y_ns_test, svm_poly.predict(X_ns_test))
+cm.shape
+```
+
+This code evaluates the performance of the svm_poly classifier on both the test set and the train set.
+
+```
+# Plot test confusion matrix
+plot_confusion_matrix(svm_poly, X_ns_test, y_ns_test)
+# Plot train confusion matrix
+plot_confusion_matrix(svm_poly, X_ns_train, y_ns_train)
+```
+
+#### Defyning the Confusion Matriz related metrics
+
+Creating the functions of all the metrics defyned above
+
+```
+def sensitivity(cm):
+    TP = cm[1,1]
+    T = cm[1,:].sum()
+    return TP / T
+
+def specificity(cm):
+    TN = cm[0,0]
+    N = cm[0,:].sum()
+    return TN / N
+
+def precision(cm):
+    TP = cm[1,1]
+    TPFP = cm[:,1].sum()
+    return TP / TPFP
+
+def f1(cm):
+    p = precision(cm)
+    r = sensitivity(cm)
+    return (2 * p * r) / (p + r)
+```
+
+Using them:
+
+```
+print("Sensitivity ", sensitivity(cm))
+print("Specificity ", specificity(cm))
+print("Precision ", precision(cm))
+print("F1-score", f1(cm))
+```
+
+This codes classification report provides valuable information on how well the svm_poly classifier performed for each class, making it easier to evaluate the model's overall performance and identify areas for improvement:
+
+> Again, we need to adjust the code to our data
+
+```
+from sklearn.metrics import classification_report
+print(classification_report(y_ns_test, svm_poly.predict(X_ns_test), target_names=['virginica', 'versicolor'])) # TODO:
+```
+
+#### Controlling the sensibility
+
+For our purposes, we would prefer to increase the sensibility for a specific class because we don't want to lose a very potential buyer. And we are even willing to detect buyers even when they may be not but never lose a buyer. So yes, we are adjusting the sensibility. 
+
+```
+# Logistic Regressor
+lr_model = LogisticRegression()
+lr_model.fit(X_ns_train, y_ns_train)
+
+cm = confusion_matrix(y_ns_train, lr_model.predict(X_ns_train))
+print("Sensitivity", sensitivity(cm))
+
+# Let's define a new predict function with
+# A controllable threshold
+def predict_th(model, X, th=0.2):  # this value must be modified
+    prob = model.predict_proba(X)
+    return prob[:,1] >= th
+
+cm = confusion_matrix(y_ns_train, predict_th(lr_model, X_ns_train, th=1.0))
+print("Sensitivity", sensitivity(cm))
+```
+
+##### ROC curve (still part of the metrics)
+
+To plot and see how the sensibility changes for different values, we can use the ROC curve.
+
+> Lab annotation: The best model is the one having a ROC curve that hugs the top left corner, that is, having a very high true positive rate and a very low false positive rate. The diagonal represents a random guess model that (in the case of two classes) outputs positive with 50% probability.
+
+
+Defining the plot function
+```
+from sklearn.metrics import roc_curve
+
+def plot_roc(predict_fn, X, y, label=None):
+    fprs, tprs, t = roc_curve(y, predict_fn(X)[:,-1])
+    
+    # Plot the ROC
+    plt.plot(fprs, tprs, label="ROC "+label)
+    plt.xlabel("FPR = 1 - specificity")
+    plt.ylabel("TPR = sensitivity")
+    plt.legend()
+```
+
+Using it:
+
+```
+plot_roc(lr_model.predict_proba, X_ns_test, y_ns_test, "Logistic Regression Test")
+plot_roc(lr_model.predict_proba, X_ns_train, y_ns_train, "Logistic Regression Train")
+```
+
+> Considering different approaches to control sensibility. KNN and SVM.
+
+Now, we are finally comparing the sensibility of all our models:
+
+```
+from sklearn.pipeline import Pipeline
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis as QDA
+
+lr = LogisticRegression()
+lr_poly = Pipeline([('poly', PolynomialFeatures(degree=2)),
+                    ('lda', LogisticRegression())])
+
+lda = LDA()
+lda_poly = Pipeline([('poly', PolynomialFeatures(degree=2)),
+                     ('lda', LDA())])
+qda = QDA()
+
+svc = SVC(C=75, degree=2, kernel='poly',  probability=True)
+
+knn = KNeighborsClassifier(n_neighbors=3)
+
+for name, model in [('lr', lr), 
+                    ('lr_poly', lr_poly), 
+                    ('lda', lda),
+                    ('lda_poly', lda_poly), 
+                    ('qda', qda),
+                    ('SVC', svc),
+                    ('KNN', knn)]:
+    model.fit(X_ns_train, y_ns_train)
+    plot_roc(model.predict_proba, X_ns_train, y_ns_train, name)
+```
+
+---
+
+## Algorithm comparison
+
+This code generates three synthetic data sets for classification and displays them in three separate graphs so that you can visualize them and understand what the data and its distribution look like.
+
+```
+from sklearn.datasets import make_moons, make_circles, make_classification
+
+X, y = make_classification(n_features=2, n_redundant=0, n_informative=2,
+                           random_state=1, n_clusters_per_class=1)
+rng = np.random.RandomState(2)
+X += 2 * rng.uniform(size=X.shape)
+linearly_separable = (X, y)
+
+datasets = [make_moons(noise=0.3, random_state=0),
+            make_circles(noise=0.2, factor=0.5, random_state=1),
+            linearly_separable
+            ]
+
+figure = plt.figure(figsize=(15, 5))
+for i, (X, y) in enumerate(datasets):
+    ax = plt.subplot(1, 3, i+1)
+    sns.scatterplot(X[:, 0], X[:, 1], hue=y, ax=ax)
+```
+
+This code defines a list of classifiers with different hyperparameters that will be tested and compared to see which performs best in classifying the data. Different types of classifiers and classification techniques will be used to evaluate which algorithm best fits the data in question:
+
+```
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+from matplotlib.colors import ListedColormap
+
+from sklearn.svm import SVC
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LogisticRegression, Perceptron
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.datasets import make_moons, make_circles, make_classification
+
+classifiers = [
+    ("KNN", KNeighborsClassifier(), {"n_neighbors": range(1, 4)}),
+    ("Perceptron", Perceptron(), None),
+    ("LogisticRegression", LogisticRegression(fit_intercept=True), None),
+    ("LinearSVM", SVC(kernel='linear'), {"C": np.linspace(0.0001, 100, 10)}),
+    ("RBFSVM", SVC(kernel='rbf'), {'C': np.linspace(0.001, 100, 5),
+                                   'gamma': np.linspace(0.001, 100, 5),
+                                   'coef0': np.linspace(-10, 10, 5)}),
+    ("PolySVM", SVC(kernel='poly'), {"C": np.linspace(0.0001, 100, 10), 
+                                     "degree": range(2, 4),
+                                     "coef0": np.linspace(-10, 10, 5)}),
+    ("SigmoidSVM", SVC(kernel='sigmoid'), {'C': np.linspace(0.001, 100, 5),
+                                           'gamma': np.linspace(0.001, 100, 5),
+                                           'coef0': np.linspace(-10, 10, 5)}),
+    ("LDA", LinearDiscriminantAnalysis(), None),
+    ("PolyLDA", Pipeline([('poly', PolynomialFeatures()), 
+                          ('lda', LinearDiscriminantAnalysis())]), {"poly__degree": range(2, 4)}),
+    ("QDA", QuadraticDiscriminantAnalysis(), None)
+]
+```
+
+This code creates graphs that show the decision regions of various classifiers on different data sets. It also provides the accuracy score for each classifier in the test set. This allows us to visualize how the classifiers work and how they perform in different data scenarios.
+
+```
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, cross_val_score
+
+figure = plt.figure(figsize=(27, 9))
+i = 1
+# iterate over datasets
+for ds_cnt, (X, y) in enumerate(datasets):
+    # preprocess dataset, split into training and test part
+    X = StandardScaler().fit_transform(X)
+    x_min, x_max = X[:, 0].min() - .5, X[:, 0].max() + .5
+    y_min, y_max = X[:, 1].min() - .5, X[:, 1].max() + .5
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.2),
+                         np.arange(y_min, y_max, 0.2))
+    X_grid= np.stack([xx.reshape(-1), yy.reshape(-1)], axis=-1)
+
+    # just plot the dataset first
+    cm = ListedColormap(['#f79071', '#16817a'])
+    cm_bright = ListedColormap(['#fa744f', '#024249'])
+    ax = plt.subplot(len(datasets), len(classifiers) + 1, i)
+    if ds_cnt == 0:
+        ax.set_title("Input data")
+    # Plot the training points
+    ax.scatter(X[:, 0], X[:, 1], c=y, cmap=cm_bright,
+               edgecolors='k')
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.set_xticks(())
+    ax.set_yticks(())
+    i += 1
+
+    # iterate over classifiers
+    for name, model, grid_params in classifiers:
+        ax = plt.subplot(len(datasets), len(classifiers) + 1, i)
+        if grid_params is not None:
+            grid = GridSearchCV(model, grid_params, cv=5,
+                                scoring='accuracy', refit=True, n_jobs=10)
+            grid.fit(X, y)
+            model = grid.best_estimator_
+            score = grid.best_score_
+        else:
+            model = model.fit(X, y)
+            score = np.mean(cross_val_score(model, X, y, scoring="accuracy", cv=5))
+
+        # Use this if-the-else to show predicted 
+        # probability distribution
+        if hasattr(model, "decision_function"):
+            Z = model.decision_function(X_grid)
+        else:
+            Z = model.predict_proba(X_grid)[:, 1]
+        # Un-comment this to show the decision regions
+        Z = model.predict(X_grid)        
+
+        # Put the result into a color plot
+        Z = Z.reshape(xx.shape)
+        ax.pcolormesh(xx, yy, Z, cmap=cm)
+        # ax.contourf(xx, yy, Z, alpha=.8, cmap=cm)
+
+        # Plot the training points
+        ax.scatter(X[:, 0], X[:, 1], c=y, cmap=cm_bright, edgecolors='k')
+
+        # Fix the plot size
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
+        # Remove ruler over the axis
+        ax.set_xticks(())
+        ax.set_yticks(())
+        # Print the algorithm name if in the first row
+        if ds_cnt == 0:
+            ax.set_title(name)
+        # Print the test accuracy
+        ax.text(x_max - .3, y_min + .3, # coordinate where to write
+                ('%.2f' % score), # what to write
+                size=15, horizontalalignment='right', color="white")
+        i += 1
+```
+
+With all these things, we should be able to select the best classification method. 🥲
+
 
 
 
