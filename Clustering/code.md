@@ -95,6 +95,137 @@ plot3d(X_prj, labels = y_cluster)
 > After seeing how the data is plotted we need to discuss it.
 
 
+## Clustering algorithms
+
+### Hierarchical Clustering
+
+Plotting the dendogram:
+
+```
+from scipy.cluster.hierarchy import dendrogram
+
+def plot_dendrogram(Z=None, model=None, X=None, **kwargs):
+    annotate_above = kwargs.pop('annotate_above', 0)
+
+    # Reconstruct the linkage matrix if the standard model API was used
+    if Z is None:
+        if hasattr(model, 'distances_') and model.distances_ is not None:
+            # create the counts of samples under each node
+            counts = np.zeros(model.children_.shape[0])
+            n_samples = len(model.labels_)
+            for i, merge in enumerate(model.children_):
+                current_count = 0
+                for child_idx in merge:
+                    if child_idx < n_samples:
+                        current_count += 1  # leaf node
+                    else:
+                        current_count += counts[child_idx - n_samples]
+                counts[i] = current_count
+
+            Z = np.column_stack([model.children_, model.distances_,
+                                              counts]).astype(float)
+        else:
+            Z = linkage(X, method=model.linkage, metric=model.affinity)
+    
+    if 'n_clusters' in kwargs:
+        n_clusters = kwargs.pop('n_clusters')
+        # Set the cut point just above the last but 'n_clusters' merge
+        kwargs['color_threshold'] = Z[-n_clusters, 2] + 1e-6
+        #kwargs['color_threshold'] = None
+    
+    fig = plt.figure(figsize=(20,10))
+    ax = fig.add_subplot(111)
+    # Plot the corresponding dendrogram
+    ddata = dendrogram(Z, ax=ax, **kwargs)
+    
+    # Annotate nodes in the dendrogram
+    for i, d, c in zip(ddata['icoord'], ddata['dcoord'], ddata['color_list']):
+        x = 0.5 * sum(i[1:3])
+        y = d[1]
+        nid = np.where(Z[:,2] == y)[0][0]
+        if y > annotate_above:
+            plt.plot(x, y, 'o', c=c)
+            plt.annotate(str(nid-Z.shape[0]), (x, y), xytext=(0, -5),
+                         textcoords='offset points',
+                         va='top', ha='center')
+    if kwargs['color_threshold']:
+        plt.axhline(y=kwargs['color_threshold'], c='k')
+    
+    return fig, ax
+```
+
+```
+# Plot the dendrogram, showing ony the ast 100 merges
+# and cutting the dendrogram so that we obtain 10 clusters
+plot_dendrogram(Z=Z, X=X,
+                truncate_mode='lastp', 
+                p=100, n_clusters=10)
+```
+
+Using Linkage Matrix:
+
+```
+# Recursively backtrack the dendrogram, collecting
+# the list of sample id starting from an initial point
+def get_node_leaves(Z, idx, N):
+    n1, n2 = int(Z[idx,0]), int(Z[idx,1])
+    leaves = []
+    for n in [n1, n2]:
+        if n < N:
+            leaves += [n]
+        else:
+            leaves += get_node_leaves(Z, n-N, N)
+    return leaves
+```
+
+```
+# Plot a number of images (at most maxn) under a cluster/sample id
+def plot_node(Z, X, y, idx, maxn=15*15):
+    leaves = get_node_leaves(Z, idx, X.shape[0])
+    labels, counts = np.unique(y[leaves], return_counts=True)
+    nleaves = len(leaves)
+    print(pd.DataFrame(np.array(counts).reshape(1,-1), 
+                       columns=labels, index=["Frequency:"]))
+    print("Images in the cluster:", len(leaves), "/", X.shape[0])
+
+    random.shuffle(leaves)
+    leaves = leaves[:maxn]
+    h = min((nleaves // 15)+1, 15)
+    w = nleaves if nleaves < 15 else 15
+    
+    fig, axes = plt.subplots(h, w, figsize=(w, h),
+                         subplot_kw={'xticks':[], 'yticks':[]},
+                         gridspec_kw=dict(hspace=0.1, wspace=0.1))
+
+    # For each subfigure (from 0 to 100 in the 10x10 matrix)
+    for i, ax in enumerate(axes.flat):
+        if i < nleaves:
+            ax.imshow(X[leaves[i]].reshape(8, 8), cmap='binary', interpolation='nearest')
+            ax.text(0.05, 0.05, str(y[leaves[i]]), transform=ax.transAxes, color='r')
+        else:
+            ax.set_axis_off()
+```
+
+**Linkage Methods**
+
+Given a set of clusters, we have different options to decide which of them to merge first. There are multiple strategies to decide, the best one often depends on the dataset!
+
+```
+methods = ['single', 'average', 'complete', 'centroid', 'ward']
+
+# We are gonna get one plot for every method (5)
+for method in methods:
+    Z = linkage(X, method=method, metric='euclidean') # X_cluster ?
+    fig, ax = plot_dendrogram(Z=Z, X=X, truncate_mode='lastp', 
+                              p=100, n_clusters=10)
+    ax.set_title(method)
+```
+
+> Discussing which one was the best one and why
+> Then we need to add more n values to that best method
+> Then visualize it (in 3D or 2D, depends on what we conclude)
+
+#### Similarity
 
 
 
