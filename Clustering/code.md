@@ -3,6 +3,7 @@
 This is where the actual terror starts 😱💀
 
 ```
+# pip install umap-learn
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
@@ -56,28 +57,115 @@ def plot3d(X, labels): # each point will be associated to a label
 Reshaping:
 
 ```
-dim = X_full_train.shape[1]
+dim = X_full_train.shape[1] # working on our previously defined object from the classification script
 
-# Transform from pandas dataframe to a numpy array
+# Transform from pandas data frame to a numpy array
 train_data_cluster = X_full_train.to_numpy()
 
-# Reshape of the data to allow dimensionality reduction
+# Reshape the data to allow dimensionality reduction
 X_cluster = train_data_cluster.reshape(-1, dim)
-print('X_cluster is a matrix of dimentions: {}'.format(X_cluster.shape))
+print('X_cluster is a matrix of dimensions: {}'.format(X_cluster.shape))
 
 y_cluster = y_full_train
-print('y_cluster is a matrix of dimentions: {}'.format(y_cluster.shape))
+print('y_cluster is a matrix of dimensions: {}'.format(y_cluster.shape))
 ```
 
+Using the function to inspect data:
+May not be necessary (?)
 
+```
+X = 
 
+plot3d(X, labels=y)
+```
 
+---
 
+## Hierarchical Clustering
 
+We are performing the Linkage Matrix method, so we need to construct it:
 
+```
+from scipy.cluster.hierarchy import dendrogram, linkage
 
+# Generate the linkage matrix
+Z = linkage(X, method='ward', metric='euclidean') # TODO: defy X object
+```
 
+```
+# Compute the linkages row numbers referring 
+# to a merge with at least one cluster
+mask = np.logical_or(Z[:,0] >= 1797, Z[:, 1]>= 1797) # TODO:
+np.int32(Z[mask][:, [0, 1, 2, 3]])
+np.where(mask)
+```
 
+#### Plotting the Dendogram
+
+Defining function to plot the dendrogram
+
+```
+from scipy.cluster.hierarchy import dendrogram
+
+def plot_dendrogram(Z=None, model=None, X=None, **kwargs):
+    annotate_above = kwargs.pop('annotate_above', 0)
+
+    # Reconstruct the linakge matrix if the standard model API was used
+    if Z is None:
+        if hasattr(model, 'distances_') and model.distances_ is not None:
+            # create the counts of samples under each node
+            counts = np.zeros(model.children_.shape[0])
+            n_samples = len(model.labels_)
+            for i, merge in enumerate(model.children_):
+                current_count = 0
+                for child_idx in merge:
+                    if child_idx < n_samples:
+                        current_count += 1  # leaf node
+                    else:
+                        current_count += counts[child_idx - n_samples]
+                counts[i] = current_count
+
+            Z = np.column_stack([model.children_, model.distances_,
+                                              counts]).astype(float)
+        else:
+            Z = linkage(X, method=model.linkage, metric=model.affinity)
+    
+    if 'n_clusters' in kwargs:
+        n_clusters = kwargs.pop('n_clusters')
+        # Set the cut point just above the last but 'n_clusters' merge
+        kwargs['color_threshold'] = Z[-n_clusters, 2] + 1e-6
+        #kwargs['color_threshold'] = None
+    
+    fig = plt.figure(figsize=(20,10))
+    ax = fig.add_subplot(111)
+    # Plot the corresponding dendrogram
+    ddata = dendrogram(Z, ax=ax, **kwargs)
+    
+    # Annotate nodes in the dendrogram
+    for i, d, c in zip(ddata['icoord'], ddata['dcoord'], ddata['color_list']):
+        x = 0.5 * sum(i[1:3])
+        y = d[1]
+        nid = np.where(Z[:,2] == y)[0][0]
+        if y > annotate_above:
+            plt.plot(x, y, 'o', c=c)
+            plt.annotate(str(nid-Z.shape[0]), (x, y), xytext=(0, -5),
+                         textcoords='offset points',
+                         va='top', ha='center')
+    if kwargs['color_threshold']:
+        plt.axhline(y=kwargs['color_threshold'], c='k')
+    
+    return fig, ax
+   ```
+
+See the graph:
+
+```
+# Plot the dendrogram, showing ony the ast 100 merges
+# and cutting the dendrogram so that we obtain 10 clusters
+plot_dendrogram(Z=Z, X=X,   # TODO: adjust X and Z to our data
+                truncate_mode='lastp', 
+                p=100, n_clusters=10)
+```
 
 
 
