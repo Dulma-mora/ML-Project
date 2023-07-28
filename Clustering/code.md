@@ -66,8 +66,8 @@ train_data_cluster = X_full_train.to_numpy()
 X_cl = train_data_cluster.reshape(-1, dim)
 print('X_cl is a matrix of dimensions: {}'.format(X_cl.shape))
 
-y_cluster = y_full_train
-print('y_cluster is a matrix of dimensions: {}'.format(y_cluster.shape))
+y_cl = y_full_train
+print('y_cl is a matrix of dimensions: {}'.format(y_cl.shape))
 ```
 
 ---
@@ -91,7 +91,7 @@ X_prj.shape
 Using the function to plot the data in 3D:
 
 ```
-plot3d(X_prj, labels = y_cluster)
+plot3d(X_prj, labels = y_cl)
 ```
 
 > After seeing how the data is plotted we need to discuss it.
@@ -248,7 +248,7 @@ Plotting the first node:
 # Plot the first node
 # Remember: we expect only two samples,
 # the most similar ones in the dataset!
-plot_node(Z, X_cl, y_cluster, -11)
+plot_node(Z, X_cl, y_cl, -11)
 ```
 
 ### Linkage Methods of Agglomerative Clustering Algorithm 
@@ -407,80 +407,150 @@ plot_sorted_mat(inc, y_predict) # using predefined functions
 
 #### Deciding the number of clusters in the dendrogram
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+> This part is sospechosa, we need to understand why they put the values on zero again, maybe we need to do something different
+
+```
+Z = linkage(X_cl, metric='euclidean', method='ward')
+fig, ax = plot_dendrogram(Z=Z, X=X_cl, truncate_mode='lastp',
+ p=100, n_clusters=0)
+```
+
+**Elbow analysis**
+
+Now, here we are going to use elbow analysis to approximate the number of clusters that our data can be split into.
+
+> Write about BSS, BSS, silhouette score and why we need those metrics
+
+```
+def wss(X, y_pred, metric):
+    # Compute the incidence matrix
+    inc = incidence_mat(y_pred)
+    # Compute the distances between each pair of nodes
+    dist_mat = pairwise_distances(X, metric=metric)
+    # Use the incidence matrix to select only the 
+    # distances between pair of nodes in the same cluster
+    dist_mat = dist_mat * inc
+    # Select the lower/upper triangular part of the matrix
+    # excluding the diagonal
+    triu_idx = np.triu_indices(X.shape[0], k=1)
+    
+    wss = (dist_mat[triu_idx] ** 2).sum()
+    
+    return wss
+
+def bss(X, y_pred, metric):
+    # Compute the incidence matrix
+    inc = incidence_mat(y_pred)
+    # Compute the distances between each pair of nodes
+    dist_mat = pairwise_distances(X, metric=metric)
+    # Use the incidence matrix to select only the 
+    # distances between pair of nodes in different clusters
+    dist_mat =  dist_mat * (1 - inc)
+    # Select the lower/upper triangular part of the matrix
+    # excluding the diagonal
+    triu_idx = np.triu_indices(X.shape[0], k=1)
+    
+    bss = (dist_mat[triu_idx] ** 2).sum()
+    
+    return bss
+
+print("WSS", wss(X_cl, y_predict, 'euclidean'))
+print("BSS", bss(X_cl, y_predict, 'euclidean'))
+```
+
+Elbow plot
+
+```
+from sklearn.metrics import silhouette_score
+
+wss_list, bss_list, sil_list = [], [], []
+clus_list = list(range(1, 15))
+
+for nc in clus_list:
+    model = AgglomerativeClustering(n_clusters=nc,
+                                    affinity='euclidean', 
+                                    linkage='ward')
+
+    y_predict = model.fit_predict(X)
+    
+    wss_list.append(wss(X_cl, y_predict, 'euclidean'))
+    bss_list.append(bss(X_cl, y_predict, 'euclidean'))
+    if nc > 1:
+        sil_list.append(silhouette_score(X_cl, y_predict, metric='euclidean'))
+    
+plt.plot(clus_list, wss_list, label='WSS')
+plt.plot(clus_list, bss_list, label='BSS')
+plt.legend()
+plt.show()
+
+plt.plot(clus_list[1:], sil_list, label='Average silhuette score')
+plt.legend()
+```
+
+#### Splitting the clusters
+
+Now, because (number) was the result of the plots, we are assigning (number) clusters in total.
+
+```
+Z = linkage(X_cl, metric='euclidean', method='ward')
+fig, ax = plot_dendrogram(Z=Z, X=X_cl, truncate_mode='lastp', 
+                          p=100, n_clusters=9) # CHANGE THIS VALUE
+```
+
+### Precision, Recall, and Purity
+
+> Explain what are these things and that they still are cluster evaluating metrics
+
+These metrics are used to evaluate the performance of the clustering performed. For all of them, a value closer to 1 indicates better performance of the clustering algorithm.
+A value of 1 for Precision and Recall indicates a perfect assignment of instances to a specific cluster and perfect identification of all instances in a cluster, respectively.
+A Purity value of 1 indicates that the generated clusters perfectly match the true labels.
+
+```
+def get_Ncounts(y_predict, y_true, k, j=None):
+    N = y_true.shape[0]
+    Nk_mask = y_predict == k
+    Nk = Nk_mask.sum()
+    Nj, Nkj = None, None
+    if j is not None:
+        Nj_mask = y_true == j
+        Nj = Nj_mask.sum()
+        Nkj = np.logical_and(Nj_mask, Nk_mask).sum()
+    return N, Nk, Nj, Nkj
+
+def precision(y_predict, y_true, k, j):
+    N, Nk, Nj, Nkj = get_Ncounts(y_predict, y_true, k, j)
+    return Nkj / (Nk + 1e-8)
+    
+def recall(y_predict, y_true, k, j):
+    N, Nk, Nj, Nkj = get_Ncounts(y_predict, y_true, k, j)
+    return Nkj / (Nj + 1e-8)
+
+def F(y_predict, y_true, k, j):
+    p = precision(y_predict, y_true, k, j)
+    r = recall(y_predict, y_true, k, j)
+    return (2*p*r) / (p+r)
+
+def purity(y_predict, y_true, k):
+    cls = np.unique(y_true)
+    prec = [precision(y_predict, y_true, k, j) for j in cls]
+    return max(prec)
+
+def tot_purity(y_predict, y_true):
+    N = y_true.shape[0]
+    nc = len(np.unique(y_true))
+    p = 0
+    for k in range(nc):
+        N, Nk, _, _ = get_Ncounts(y_predict, y_true, k)
+        pk = purity(y_predict, y_true, k)
+        p += (Nk / N) * pk
+    return p
+```
+
+**Calculating the Total Purity of the cluster**
+
+```
+tot_purity(y_predict, y_cl)
+```
 
 
 
