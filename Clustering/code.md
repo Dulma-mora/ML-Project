@@ -63,8 +63,8 @@ dim = X_full_train.shape[1] # working on our previously defined object from the 
 train_data_cluster = X_full_train.to_numpy()
 
 # Reshape the data to allow dimensionality reduction
-X_cluter = train_data_cluster.reshape(-1, dim)
-print('X_cluter is a matrix of dimensions: {}'.format(X_cluter.shape))
+X_cluster = train_data_cluster.reshape(-1, dim)
+print('X_cluster is a matrix of dimensions: {}'.format(X_cluster.shape))
 
 y_cluster = y_full_train
 print('y_cluster is a matrix of dimensions: {}'.format(y_cluster.shape))
@@ -84,7 +84,7 @@ from sklearn.decomposition import PCA
 # defining a number of components
 pca = PCA(n_components = 3)
 
-X_prj = pca.fit_transform(X_cluter)
+X_prj = pca.fit_transform(X_cluster)
 X_prj.shape
 ```
 
@@ -121,7 +121,7 @@ The importance of defining the linkage matrix since the beggining is because the
 from scipy.cluster.hierarchy import dendrogram, linkage
 
 # Generate the linkage matrix
-Z = linkage(X_cluter, method='ward', metric='euclidean')
+Z = linkage(X_cluster, method='ward', metric='euclidean')
 ```
 
 ```
@@ -195,7 +195,7 @@ This dendrogram provides valuable information about the clustering hierarchy and
 ```
 # Plot the dendrogram, showing ony the ast 100 merges
 # and cutting the dendrogram so that we obtain 10 clusters
-plot_dendrogram(Z=Z, X=X_cluter,
+plot_dendrogram(Z=Z, X=X_cluster,
                 truncate_mode='lastp', 
                 p=100, n_clusters=10)
 ```
@@ -248,7 +248,7 @@ Plotting the first node:
 # Plot the first node
 # Remember: we expect only two samples,
 # the most similar ones in the dataset!
-plot_node(Z, X_cluter, y_cluster, -11)
+plot_node(Z, X_cluster, y_cluster, -11)
 ```
 
 ### Linkage Methods of Agglomerative Clustering Algorithm 
@@ -266,7 +266,7 @@ methods = ['single', 'average', 'complete', 'centroid', 'ward']
 
 # We are gonna get one plot for every method (5)
 for method in methods:
-    Z = linkage(X, method=method, metric='euclidean') # X_cluter ?
+    Z = linkage(X, method=method, metric='euclidean') # X_cluster ?
     fig, ax = plot_dendrogram(Z=Z, X=X, truncate_mode='lastp', 
                               p=100, n_clusters=10)
     ax.set_title(method)
@@ -294,10 +294,10 @@ n_clusters=10
 
 model = AgglomerativeClustering(n_clusters=n_clusters, affinity='euclidean', linkage='ward')
 
-y_predict = model.fit_predict(X_cluter)
+y_predict = model.fit_predict(X_cluster)
 
-plot3d(X_cluter, labels=y_predict)
-plot_dendrogram(model=model, X=X_cluter, truncate_mode='lastp', p=100,
+plot3d(X_cluster, labels=y_predict)
+plot_dendrogram(model=model, X=X_cluster, truncate_mode='lastp', p=100,
             n_clusters=n_clusters,
             color_threshold=distance_threshold)
 ```
@@ -359,14 +359,14 @@ def correlation(X, y_pred, metric):
 Testing:
 
 ```
-correlation(X_cluter.reshape(-1, 64), y_predict, 'euclidean') # using the predicted labels
+correlation(X_cluster.reshape(-1, 64), y_predict, 'euclidean') # using the predicted labels
 ```
 
 **Comparing with a random clustering**
 
 ```
 y_rand = np.random.randint(0, 10, y.shape[0])
-correlation(X_cluter, y_rand, 'euclidean')
+correlation(X_cluster, y_rand, 'euclidean')
 ```
 To inspect the similarity matrix and take a look at how many points within the same cluster are distant from
 each other we can resort to a sorted similarity matrix.
@@ -394,7 +394,7 @@ def plot_sorted_mat(sim, y_pred):
 
 ```
 # Try to select different distances!
-sim = similarity_mat(X_cluter, metric='euclidean')
+sim = similarity_mat(X_cluster, metric='euclidean')
 # plot sorted ...
 plot_sorted_mat(sim, y_predict)
 ```
@@ -410,8 +410,8 @@ plot_sorted_mat(inc, y_predict) # using predefined functions
 > This part is sospechosa, we need to understand why they put the values on zero again, maybe we need to do something different
 
 ```
-Z = linkage(X_cluter, metric='euclidean', method='ward')
-fig, ax = plot_dendrogram(Z=Z, X=X_cluter, truncate_mode='lastp',
+Z = linkage(X_cluster, metric='euclidean', method='ward')
+fig, ax = plot_dendrogram(Z=Z, X=X_cluster, truncate_mode='lastp',
  p=100, n_clusters=0)
 ```
 
@@ -454,8 +454,8 @@ def bss(X, y_pred, metric):
     
     return bss
 
-print("WSS", wss(X_cluter, y_predict, 'euclidean'))
-print("BSS", bss(X_cluter, y_predict, 'euclidean'))
+print("WSS", wss(X_cluster, y_predict, 'euclidean'))
+print("BSS", bss(X_cluster, y_predict, 'euclidean'))
 ```
 
 Elbow plot
@@ -473,10 +473,10 @@ for nc in clus_list:
 
     y_predict = model.fit_predict(X)
     
-    wss_list.append(wss(X_cluter, y_predict, 'euclidean'))
-    bss_list.append(bss(X_cluter, y_predict, 'euclidean'))
+    wss_list.append(wss(X_cluster, y_predict, 'euclidean'))
+    bss_list.append(bss(X_cluster, y_predict, 'euclidean'))
     if nc > 1:
-        sil_list.append(silhouette_score(X_cluter, y_predict, metric='euclidean'))
+        sil_list.append(silhouette_score(X_cluster, y_predict, metric='euclidean'))
     
 plt.plot(clus_list, wss_list, label='WSS')
 plt.plot(clus_list, bss_list, label='BSS')
@@ -492,8 +492,8 @@ plt.legend()
 Now, because (number) was the result of the plots, we are assigning (number) clusters in total.
 
 ```
-Z = linkage(X_cluter, metric='euclidean', method='ward')
-fig, ax = plot_dendrogram(Z=Z, X=X_cluter, truncate_mode='lastp', 
+Z = linkage(X_cluster, metric='euclidean', method='ward')
+fig, ax = plot_dendrogram(Z=Z, X=X_cluster, truncate_mode='lastp', 
                           p=100, n_clusters=9) # CHANGE THIS VALUE
 ```
 
@@ -561,24 +561,24 @@ Different initialization methods
 ```
 # Random
 model = KMeans(n_clusters=2, init="random", random_state=0)             
-print("Random Kmeans purity", tot_purity(model.fit_predict(X_cluter), y_cluster))
+print("Random Kmeans purity", tot_purity(model.fit_predict(X_cluster), y_cluster))
 
 # K-Means++
 model = KMeans(n_clusters=2, init="k-means", random_state=0)             
-print("Kmeans++ purity", tot_purity(model.fit_predict(X_cluter), y_cluster))
+print("Kmeans++ purity", tot_purity(model.fit_predict(X_cluster), y_cluster))
 
 # Hierarchical
 model = AgglomerativeClustering(n_clusters=2, 
                                  distance_threshold=distance_threshold, 
                                  affinity='euclidean', linkage='complete')
-y_predict = hmodel.fit_predict(X_cluter)
+y_predict = hmodel.fit_predict(X_cluster)
 
 ### TODO: figure out what to put in these two lines
 #centroids = np.stack([... for k in range(10)]) # what do we need to write here?
 #model = KMeans(n_clusters=2, init=..., n_init=1, random_state=0)             
-print("Hierarchical+Kmeans purity", tot_purity(model.fit_predict(X_cluter), y_cluster))
+print("Hierarchical+Kmeans purity", tot_purity(model.fit_predict(X_cluster), y_cluster))
 
-plot3d(X_cluter, labels=y_predict)
+plot3d(X_cluster, labels=y_predict)
 ```
 
 > Discuss the results
