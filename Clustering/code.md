@@ -587,7 +587,7 @@ plot3d(X_cl, labels=y_predict)
 
 ## DBSCAN
 
-
+This algorithm is based on 
 
 
 
