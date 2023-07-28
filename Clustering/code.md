@@ -556,8 +556,36 @@ tot_purity(y_predict, y_cl)
 
 ## K Means Algorithm
 
+Different initialization methods
 
+```
+# Random
+model = KMeans(n_clusters=2, init="random", random_state=0)             
+print("Random Kmeans purity", tot_purity(model.fit_predict(X_cl), y_cl))
 
+# K-Means++
+model = KMeans(n_clusters=2, init="k-means", random_state=0)             
+print("Kmeans++ purity", tot_purity(model.fit_predict(X_cl), y_cl))
+
+# Hierarchical
+model = AgglomerativeClustering(n_clusters=2, 
+                                 distance_threshold=distance_threshold, 
+                                 affinity='euclidean', linkage='complete')
+y_predict = hmodel.fit_predict(X_cl)
+
+### TODO: figure out what to put in these two lines
+#centroids = np.stack([... for k in range(10)]) # what do we need to write here?
+#model = KMeans(n_clusters=2, init=..., n_init=1, random_state=0)             
+print("Hierarchical+Kmeans purity", tot_purity(model.fit_predict(X_cl), y_cl))
+
+plot3d(X_cl, labels=y_predict)
+```
+
+> Discuss the results
+
+---
+
+## DBSCAN
 
 
 
