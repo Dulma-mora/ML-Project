@@ -63,8 +63,8 @@ dim = X_full_train.shape[1] # working on our previously defined object from the 
 train_data_cluster = X_full_train.to_numpy()
 
 # Reshape the data to allow dimensionality reduction
-X_cluster = train_data_cluster.reshape(-1, dim)
-print('X_cluster is a matrix of dimensions: {}'.format(X_cluster.shape))
+X_cl = train_data_cluster.reshape(-1, dim)
+print('X_cl is a matrix of dimensions: {}'.format(X_cl.shape))
 
 y_cluster = y_full_train
 print('y_cluster is a matrix of dimensions: {}'.format(y_cluster.shape))
@@ -84,7 +84,7 @@ from sklearn.decomposition import PCA
 # defining a number of components
 pca = PCA(n_components = 3)
 
-X_prj = pca.fit_transform(X_cluster)
+X_prj = pca.fit_transform(X_cl)
 X_prj.shape
 ```
 
@@ -121,7 +121,7 @@ The importance of defining the linkage matrix since the beggining is because the
 from scipy.cluster.hierarchy import dendrogram, linkage
 
 # Generate the linkage matrix
-Z = linkage(X_cluster, method='ward', metric='euclidean')
+Z = linkage(X_cl, method='ward', metric='euclidean')
 ```
 
 ```
@@ -195,7 +195,7 @@ This dendrogram provides valuable information about the clustering hierarchy and
 ```
 # Plot the dendrogram, showing ony the ast 100 merges
 # and cutting the dendrogram so that we obtain 10 clusters
-plot_dendrogram(Z=Z, X=X_cluster,
+plot_dendrogram(Z=Z, X=X_cl,
                 truncate_mode='lastp', 
                 p=100, n_clusters=10)
 ```
@@ -248,7 +248,7 @@ Plotting the first node:
 # Plot the first node
 # Remember: we expect only two samples,
 # the most similar ones in the dataset!
-plot_node(Z, X_cluster, y_cluster, -11)
+plot_node(Z, X_cl, y_cluster, -11)
 ```
 
 ### Linkage Methods of Agglomerative Clustering Algorithm 
@@ -266,7 +266,7 @@ methods = ['single', 'average', 'complete', 'centroid', 'ward']
 
 # We are gonna get one plot for every method (5)
 for method in methods:
-    Z = linkage(X, method=method, metric='euclidean') # X_cluster ?
+    Z = linkage(X, method=method, metric='euclidean') # X_cl ?
     fig, ax = plot_dendrogram(Z=Z, X=X, truncate_mode='lastp', 
                               p=100, n_clusters=10)
     ax.set_title(method)
@@ -282,20 +282,130 @@ for method in methods:
 #
 ```
 
+### Agglomerative Clustering Algorithm using the () method
+
+Now that we dentified the best method, we are using it as a parameter to perform the agglomerative algorithm:
+
+```
+from sklearn.cluster import AgglomerativeClustering
+
+distance_threshold=None #
+n_clusters=10
+
+model = AgglomerativeClustering(n_clusters=n_clusters, affinity='euclidean', linkage='ward')
+
+y_predict = model.fit_predict(X_cl)
+
+plot3d(X_cl, labels=y_predict)
+plot_dendrogram(model=model, X=X_cl, truncate_mode='lastp', p=100,
+            n_clusters=n_clusters,
+            color_threshold=distance_threshold)
+```
+The output of the previous code is a 3D plot and a dendrogram.
+
+### Clustering Metrics
+
+Now that we obtained an output, our aim is to evaluate the quality of the cluster and find the optimal number of clusters for the analyzed data.    
+
+**WSS (Within-cluster Sum of Squares):** Measures the sum of the squares of the distances between each point and the centroid of its cluster. The smaller the value, the more compact the clusters will be.    
+**BSS (Between-cluster Sum of Squares):** Measures the sum of the squares of the distances between the centroids of the clusters and the global centroid of the data. The higher the value, the further apart the clusters will be.
+**Silhouette Score:** Calculates how well each sample does within its own cluster compared to other clusters. A value closer to 1 indicates that the samples are well separated in their clusters.     
+**Correlation:** Calculates the correlation between the incidence matrix and the similarity matrix. The higher the value, the better the cluster structure
 
 
+**Calculation of the Clustering Metrics**
 
+```
+from sklearn.metrics import pairwise_distances
+from sklearn.preprocessing import normalize
 
+def incidence_mat(y_pred):
+ npoints = y_pred.shape[0]
+ mat = np.zeros([npoints, npoints])
+ # Retrieve how many different cluster ids there are
+ clusters = np.unique(y_pred)
+ nclusters = clusters.shape[0]
 
+ for i in range(nclusters):
+ sample_idx = np.where(y_pred == i) #indices of the samples in this cluster
+ # Compute combinations of these indices
+ xx, yy = np.meshgrid(sample_idx, sample_idx)
+ mat[xx, yy] = 1
 
+ return mat
+def similarity_mat(X, metric):
+ dist_mat = pairwise_distances(X, metric=metric)
+ min_dist, max_dist = dist_mat.min(), dist_mat.max()
 
+ # Normalize distances in [0, 1] and compute the similarity
+ sim_mat = 1 - (dist_mat - min_dist) / (max_dist - min_dist)
+ return sim_mat
+def correlation(X, y_pred, metric):
+ inc = incidence_mat(y_pred)
+ sim = similarity_mat(X, metric)
 
+ # Note: we can eventually remove duplicate values
+ # only the upper/lower triangular matrix
+ # triuidx = np.triu_indices(y_pred.shape[0], k=1)
+ # inc = inc[triuidx]
+ # sim = sim[triuidx]
 
+ inc = normalize(inc.reshape(1, -1))
+ sim = normalize(sim.reshape(1, -1))
+ corr = inc @ sim.T
 
+ return corr[0,0]
+```
+Testing:
 
+```
+correlation(X_cl.reshape(-1, 64), y_predict, 'euclidean') # using the predicted labels
+```
 
+**Comparing with a random clustering**
 
+```
+y_rand = np.random.randint(0, 10, y.shape[0])
+correlation(X_cl, y_rand, 'euclidean')
+```
+To inspect the similarity matrix and take a look at how many points within the same cluster are distant from
+each other we can resort to a sorted similarity matrix.
 
+```
+def sorted_mat(sim, y_pred):
+ idx_sorted = np.argsort(y_pred)
+ # Sort the rows
+ sim = sim[idx_sorted]
+ # Sort the columns
+ sim = sim[:, idx_sorted]
+
+ return sim
+def plot_sorted_mat(sim, y_pred):
+ sim = sorted_mat(sim, y_pred)
+
+ fig, ax = plt.subplots(figsize=(40,30))
+ ax = sns.heatmap(sim, ax=ax)
+ # Remove ruler (ticks)
+ ax.set_yticks([])
+ ax.set_xticks([])
+```
+
+**Visualizing the Ordered Similarity Matrix and the Incidence Matrix**
+
+```
+# Try to select different distances!
+sim = similarity_mat(X_cl, metric='euclidean')
+# plot sorted ...
+plot_sorted_mat(sim, y_predict)
+```
+
+```
+# Plot the sorted incidence matrix and compare it with the similarity matrix
+inc = incidence_mat(y_predict)
+plot_sorted_mat(inc, y_predict) # using predefined functions
+```
+
+#### Deciding the number of clusters in the dendrogram
 
 
 
