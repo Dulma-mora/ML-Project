@@ -552,6 +552,10 @@ def tot_purity(y_predict, y_true):
 tot_purity(y_predict, y_cl)
 ```
 
+---
+
+## K Means Algorithm
+
 
 
 
