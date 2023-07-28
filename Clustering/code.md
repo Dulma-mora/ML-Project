@@ -74,6 +74,8 @@ print('y_cluster is a matrix of dimensions: {}'.format(y_cluster.shape))
 
 ## Dimensionality Reduction Analysis
 
+> Explanation of why we need to use dimensionality reduction algorithms
+
 #### PCA
 
 ```
@@ -94,12 +96,46 @@ plot3d(X_prj, labels = y_cluster)
 
 > After seeing how the data is plotted we need to discuss it.
 
+---
 
-## Clustering algorithms
+# Clustering algorithms
 
-### Hierarchical Clustering
+During this project, we are going to perform three clustering algorithms and compare them with each other:
+- Agglomerative Clustering Algorithm (Hierarchical Clustering)
+- KNN Algorithm
+- DBSCAN Algorithm
 
-Plotting the dendogram:
+---
+
+## Agglomerative Clustering Analysis (Hierarchical Clustering)
+
+#### Preparing the previsualization Dendogram
+
+**Linkage Matrix**
+
+> Discuss what is a linkage matrix and why are we creating it, also discuss what are we gonna use it for.
+
+The importance of defining the linkage matrix since the beggining is because the agglomerative clustering algorithm uses it to obtain the dendogram. 
+
+```
+from scipy.cluster.hierarchy import dendrogram, linkage
+
+# Generate the linkage matrix
+Z = linkage(X_cluster, method='ward', metric='euclidean')
+```
+
+```
+# Compute the linkages row numbers referring
+# to merge with at least one cluster
+mask = np.logical_or(Z[:,0] >= 1797, Z[:, 1]>= 1797)
+np.int32(Z[mask][:, [0, 1, 2, 3]])
+np.where(mask)
+```
+
+#### Plotting the Previsualization Dendrogram
+
+For this clustering method, we need to define a function that allows us to plot the dendrogram of every analysis.     
+Here, we are defining a function to plot all dendrograms. 
 
 ```
 from scipy.cluster.hierarchy import dendrogram
@@ -153,16 +189,18 @@ def plot_dendrogram(Z=None, model=None, X=None, **kwargs):
     
     return fig, ax
 ```
+In addition, this first dendrogram generation is a static display that allows an overview of how data points are grouped and related to each other as clusters are merged. **A specific number of clusters is not automatically selected at this point even though we are performing an agglomerative clustering algorithm**.      
+This dendrogram provides valuable information about the clustering hierarchy and can help determine an approximate number of clusters.
 
 ```
 # Plot the dendrogram, showing ony the ast 100 merges
 # and cutting the dendrogram so that we obtain 10 clusters
-plot_dendrogram(Z=Z, X=X,
+plot_dendrogram(Z=Z, X=X_cluster,
                 truncate_mode='lastp', 
                 p=100, n_clusters=10)
 ```
 
-Using Linkage Matrix:
+#### Auxiliary functions 
 
 ```
 # Recursively backtrack the dendrogram, collecting
@@ -176,9 +214,7 @@ def get_node_leaves(Z, idx, N):
         else:
             leaves += get_node_leaves(Z, n-N, N)
     return leaves
-```
 
-```
 # Plot a number of images (at most maxn) under a cluster/sample id
 def plot_node(Z, X, y, idx, maxn=15*15):
     leaves = get_node_leaves(Z, idx, X.shape[0])
@@ -206,11 +242,26 @@ def plot_node(Z, X, y, idx, maxn=15*15):
             ax.set_axis_off()
 ```
 
-**Linkage Methods**
-
-Given a set of clusters, we have different options to decide which of them to merge first. There are multiple strategies to decide, the best one often depends on the dataset!
+Plotting the first node:
 
 ```
+# Plot the first node
+# Remember: we expect only two samples,
+# the most similar ones in the dataset!
+plot_node(Z, X_cluster, y_cluster, -11)
+```
+
+### Linkage Methods of Agglomerative Clustering Algorithm 
+
+Agglomerative Hierarchical Clustering Algorithm is a general clustering approach that involves the iterative union of clusters to form a hierarchy of clusters. During this process, different linkage methods are used, which are criteria to calculate the distance or similarity between clusters.
+
+Here, we are comparing five different methods: single, average, complete, centroid and ward.
+> Write more about them
+
+And we are going to select the best method for our model.
+
+```
+# defyning methods
 methods = ['single', 'average', 'complete', 'centroid', 'ward']
 
 # We are gonna get one plot for every method (5)
@@ -225,7 +276,15 @@ for method in methods:
 > Then we need to add more n values to that best method
 > Then visualize it (in 3D or 2D, depends on what we conclude)
 
-#### Similarity
+```
+# here we add more n values to the best method
+#
+#
+```
+
+
+
+
 
 
 
