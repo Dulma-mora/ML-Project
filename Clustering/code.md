@@ -587,13 +587,63 @@ plot3d(X_cluster, labels=y_predict)
 
 ## DBSCAN
 
-This algorithm is based on 
+This algorithm is based on density and core points.
+
+> More description of the DBSCAN algorithm
+
+The algorithm starts with a random point p and retrieves all the points which are **density reachable** from p. If p is a core point the cluster is kept and the algorithm moves to the next unvisited point until all points have bees visited.
+
+```
+from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
+
+model = DBSCAN(eps=20, min_samples=10)
+y_predict = model.fit_predict(X_cluster)
+print("DBSCAN purity", tot_purity(y_predict, y_cluster))
+```
+
+```
+print("Number of outliers", (y_predict == -1).sum())
+ids, counts = np.unique(y_predict, return_counts=True)
+print(pd.DataFrame(counts.reshape(1,-1), columns=ids, index=['']))
 
 
+plot3d(X, labels=y_predict)
+```
 
+#### Deciding Eps and MinPts values
 
+> Discuss something about all this concepts
 
+Creating a function to estimate metrics
+```
+def make_scorer(metric):
+    def scorer(estimator, X, y):
+        y_pred = estimator.fit_predict(X)
+        return metric(y_pred, y)
+    return scorer
+```
 
+Using it
+
+```
+from sklearn.model_selection import GridSearchCV
+
+params = {'eps': [20], 'min_samples': range(5,20)} # how to select the range?
+cv = GridSearchCV(model, params, scoring=make_scorer(tot_purity), cv=3)
+cv = cv.fit(X_cluster, y_cluster)
+```
+
+```
+print(cv.best_params_)
+print("CV score", tot_purity(cv.best_estimator_.fit_predict(X_cluster), y_cluster))
+
+pd.DataFrame(cv.cv_results_)
+```
+
+---
+
+# Algorithm Comparison
 
 
 
